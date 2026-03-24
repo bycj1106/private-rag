@@ -12,10 +12,12 @@
 | 语义检索 | ✅ 完成 | 基于 embedding 相似度匹配 |
 | RAG 问答 | ✅ 完成 | MiniMax-M2.7 |
 | 文档管理 | ✅ 完成 | 完整 CRUD 操作 |
-| 前端界面 | 🔄 开发中 | 简洁扁平化 Web UI |
+| 前端界面 | 🔄 开发中 | React + TailwindCSS + Vite |
 | 本地模型支持 | 📋 规划中 | Ollama 集成 |
 
 ## 技术栈
+
+### 后端
 
 | 层级 | 技术 | 说明 |
 |------|------|------|
@@ -25,77 +27,60 @@
 | **向量数据库** | Chroma | 专为 RAG 设计 |
 | **元数据存储** | SQLite | 零配置、轻量级 |
 | **LLM** | MiniMax API | MiniMax-M2.7 |
-| **Embedding** | text-embedding-3-small | 性价比最高 |
-| **前端** | React + TailwindCSS | 规划中 |
+
+### 前端
+
+| 层级 | 技术 | 说明 |
+|------|------|------|
+| **框架** | React 18 + TypeScript | 主流前端框架 |
+| **构建工具** | Vite | 快速开发体验 |
+| **样式** | TailwindCSS | 原子化 CSS |
+| **路由** | React Router v6 | SPA 路由管理 |
 
 ## 项目进度
 
 ```
-[███████████████████░░░░░░░░] 75%
-
 后端开发     ████████████████████ 100%
-前端界面     ████████░░░░░░░░░░░░░ 30%
-文档完善     ██████████████░░░░░░░░ 60%
-测试覆盖     ████████████░░░░░░░░░░ 50%
+前端界面     ████░░░░░░░░░░░░░░░░ 20%
 ```
 
 ## 快速开始
 
-### 1. 安装依赖
+### 后端启动
 
 ```bash
+# 1. 安装后端依赖
 pip install -r requirements.txt
-```
 
-### 2. 配置环境变量
+# 2. 配置环境变量
+cp .env.example env/.env
+# 编辑 env/.env，填入你的 MiniMax API Key
 
-```bash
-cp .env.example .env
-# 编辑 .env，填入你的 OPENAI_API_KEY
-```
-
-### 3. 启动服务
-
-```bash
+# 3. 启动后端服务
 python3 -m app.main
 ```
 
-服务启动后访问：
-- API 文档：http://localhost:8000/docs
-- 健康检查：http://localhost:8000/health
-
-## API 接口
-
-| 方法 | 端点 | 说明 |
-|------|------|------|
-| POST | `/documents` | 上传文档 |
-| GET | `/documents` | 获取文档列表 |
-| GET | `/documents/{id}` | 获取文档详情 |
-| DELETE | `/documents/{id}` | 删除文档 |
-| POST | `/query` | RAG 问答 |
-| GET | `/health` | 健康检查 |
-
-### 上传文档示例
+### 前端启动
 
 ```bash
-curl -X POST http://localhost:8000/documents \
-  -H "Content-Type: application/json" \
-  -d '{"file_content": "# RAG\n\nRAG是检索增强生成技术。", "file_name": "rag-intro.md"}'
+# 1. 安装前端依赖
+cd frontend
+npm install
+
+# 2. 启动前端开发服务器
+npm run dev
 ```
 
-### 问答示例
-
-```bash
-curl -X POST http://localhost:8000/query \
-  -H "Content-Type: application/json" \
-  -d '{"question": "什么是RAG？", "top_k": 3}'
-```
+服务启动后：
+- **后端 API**: http://localhost:8000
+- **前端界面**: http://localhost:5173
+- **API 文档**: http://localhost:8000/docs
 
 ## 项目结构
 
 ```
 private-rag
-├── app/
+├── app/                        # 后端代码
 │   ├── api/routes.py          # API 路由
 │   ├── config.py              # 配置管理
 │   ├── db/
@@ -106,13 +91,30 @@ private-rag
 │   │   ├── document.py       # 文档处理
 │   │   └── rag.py            # RAG 核心
 │   └── main.py               # FastAPI 入口
+├── frontend/                    # 前端代码
+│   ├── src/
+│   │   ├── components/       # 组件
+│   │   ├── pages/           # 页面
+│   │   ├── services/api.ts  # API 调用
+│   │   ├── App.tsx          # 应用入口
+│   │   └── index.css        # 全局样式
+│   ├── tailwind.config.js   # Tailwind 配置
+│   ├── vite.config.ts        # Vite 配置
+│   └── package.json
 ├── data/                      # 数据持久化
 ├── tests/                     # 测试
 ├── spec/                      # 规范文档
-├── requirements.txt
-├── .env.example
+├── requirements.txt           # Python 依赖
 └── README.md
 ```
+
+## 核心页面
+
+| 页面 | 路由 | 功能 |
+|------|------|------|
+| 上传文档 | `/` | 上传 Markdown 文档到知识库 |
+| 文档列表 | `/documents` | 查看和删除已上传文档 |
+| 知识问答 | `/query` | 基于知识库内容进行问答 |
 
 ## 数据流
 
@@ -144,7 +146,7 @@ python3 -m pytest tests/test_api.py -v
 
 | 变量 | 默认值 | 说明 |
 |------|--------|------|
-| `OPENAI_API_KEY` | - | OpenAI API 密钥（必填） |
+| `OPENAI_API_KEY` | - | MiniMax API 密钥（必填） |
 | `CHUNK_SIZE` | 500 | 分块大小 |
 | `CHUNK_OVERLAP` | 50 | 分块重叠 |
 | `TOP_K` | 5 | 检索数量 |
@@ -156,7 +158,9 @@ python3 -m pytest tests/test_api.py -v
 - [LangChain Documentation](https://python.langchain.com/docs)
 - [Chroma Documentation](https://docs.trychroma.com)
 - [FastAPI Documentation](https://fastapi.tiangolo.com)
-- [OpenAI API Documentation](https://platform.openai.com/docs)
+- [MiniMax API Documentation](https://platform.minimaxi.com/docs)
+- [React Documentation](https://react.dev)
+- [TailwindCSS Documentation](https://tailwindcss.com/docs)
 
 ## License
 
