@@ -1,15 +1,19 @@
 import chromadb
+import threading
 from app.config import get_settings
 
 
 _client = None
+_client_lock = threading.Lock()
 
 
 def get_chroma_client():
     global _client
     if _client is None:
-        settings = get_settings()
-        _client = chromadb.PersistentClient(path=settings.chroma_dir)
+        with _client_lock:
+            if _client is None:
+                settings = get_settings()
+                _client = chromadb.PersistentClient(path=settings.chroma_dir)
     return _client
 
 
@@ -56,12 +60,7 @@ def search_chunks(query: str, top_k: int) -> list[dict]:
 
 def delete_chunks(document_id: str):
     collection = get_collection()
-    
-    try:
-        chunk_ids = [f"{document_id}_{i}" for i in range(1000)]
-        collection.delete(ids=chunk_ids)
-    except Exception:
-        pass
+    collection.delete(where={"document_id": document_id})
 
 
 def get_collection_count() -> int:

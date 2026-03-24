@@ -1,11 +1,10 @@
 from pydantic import BaseModel, Field
 from typing import Optional
-from datetime import datetime
 
 
 class DocumentCreate(BaseModel):
-    file_content: str
-    file_name: str
+    file_content: str = Field(..., max_length=10_000_000, description="Document content, max 10MB")
+    file_name: str = Field(..., max_length=255, description="File name")
 
 
 class DocumentResponse(BaseModel):
@@ -34,8 +33,8 @@ class DocumentDeleteResponse(BaseModel):
 
 
 class QueryRequest(BaseModel):
-    question: str
-    top_k: Optional[int] = 5
+    question: str = Field(..., min_length=1, max_length=10000, description="Query question")
+    top_k: Optional[int] = Field(default=5, ge=1, le=100)
 
 
 class SourceDocument(BaseModel):

@@ -1,22 +1,26 @@
+import threading
 from langchain_openai import ChatOpenAI
 from langchain_core.prompts import ChatPromptTemplate
 from app.config import get_settings
 from app.db import chroma
 
 
-llm = None
+_llm = None
+_llm_lock = threading.Lock()
 
 
 def get_llm():
-    global llm
-    if llm is None:
-        settings = get_settings()
-        llm = ChatOpenAI(
-            model="gpt-3.5-turbo",
-            temperature=0.7,
-            openai_api_key=settings.openai_api_key
-        )
-    return llm
+    global _llm
+    if _llm is None:
+        with _llm_lock:
+            if _llm is None:
+                settings = get_settings()
+                _llm = ChatOpenAI(
+                    model="gpt-3.5-turbo",
+                    temperature=0.7,
+                    openai_api_key=settings.openai_api_key
+                )
+    return _llm
 
 
 def query(question: str, top_k: int = None) -> dict:

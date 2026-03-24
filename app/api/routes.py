@@ -75,25 +75,26 @@ async def delete_document(doc_id: str):
 
 @router.post("/query", response_model=QueryResponse)
 async def query_documents(req: QueryRequest):
-    if not req.question or not req.question.strip():
-        raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail="Question cannot be empty")
-    
-    result = rag.query(req.question, req.top_k)
-    
-    return QueryResponse(
-        answer=result["answer"],
-        sources=[
-            SourceDocument(
-                content=source["content"],
-                file_name=source["file_name"],
-                relevance_score=source["relevance_score"]
-            )
-            for source in result["sources"]
-        ]
-    )
+    try:
+        result = rag.query(req.question, req.top_k)
+        return QueryResponse(
+            answer=result["answer"],
+            sources=[
+                SourceDocument(
+                    content=source["content"],
+                    file_name=source["file_name"],
+                    relevance_score=source["relevance_score"]
+                )
+                for source in result["sources"]
+            ]
+        )
+    except ValueError as e:
+        raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail=str(e))
+    except Exception as e:
+        raise HTTPException(status_code=status.HTTP_500_INTERNAL_SERVER_ERROR, detail=f"Query failed: {str(e)}")
 
 
 @router.get("/health")
 async def health_check():
-    from datetime import datetime
-    return {"status": "ok", "timestamp": datetime.utcnow().isoformat()}
+    from datetime import datetime, timezone
+    return {"status": "ok", "timestamp": datetime.now(timezone.utc).isoformat()}
