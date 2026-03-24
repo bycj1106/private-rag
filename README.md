@@ -10,7 +10,7 @@
 | 文档分块处理 | ✅ 完成 | 默认 500 字符/块，可配置 |
 | 向量存储 | ✅ 完成 | Chroma 持久化存储 |
 | 语义检索 | ✅ 完成 | 基于 embedding 相似度匹配 |
-| RAG 问答 | ✅ 完成 | OpenAI GPT-3.5-turbo |
+| RAG 问答 | ✅ 完成 | MiniMax-M2.7 |
 | 文档管理 | ✅ 完成 | 完整 CRUD 操作 |
 | 前端界面 | 🔄 开发中 | 简洁扁平化 Web UI |
 | 本地模型支持 | 📋 规划中 | Ollama 集成 |
@@ -24,7 +24,7 @@
 | **RAG 框架** | LangChain | 市场认可度高 |
 | **向量数据库** | Chroma | 专为 RAG 设计 |
 | **元数据存储** | SQLite | 零配置、轻量级 |
-| **LLM** | OpenAI API | gpt-3.5-turbo |
+| **LLM** | MiniMax API | MiniMax-M2.7 |
 | **Embedding** | text-embedding-3-small | 性价比最高 |
 | **前端** | React + TailwindCSS | 规划中 |
 
