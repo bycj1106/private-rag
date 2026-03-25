@@ -4,11 +4,11 @@
 
 ```
 后端开发     ████████████████████ 100%
-前端界面     ████░░░░░░░░░░░░░░░░░ 20%
+前端界面     ████████████████████ 100%
 
 Phase 1     ████████████████████ 100%
-Phase 2     ░░░░░░░░░░░░░░░░░░░░  0%
-Phase 3     ░░░░░░░░░░░░░░░░░░░░  0%
+Phase 2     ████████████████████ 100%
+Phase 3     ████████████████████ 100%
 ```
 
 ---
@@ -24,25 +24,32 @@ Phase 3     ░░░░░░░░░░░░░░░░░░░░  0%
 - [x] 配置 ESLint + Prettier
 - [x] 搭建基础组件 (Layout, Header)
 
-#### Phase 2: 核心页面
-- [ ] 文档上传页面
+#### Phase 2: 核心页面 ✅
+- [x] 文档上传页面
   - [x] Markdown 内容输入框
   - [x] 文件名输入
   - [x] 上传按钮
   - [x] 上传结果展示
-- [ ] 文档列表页面
+- [x] 文档列表页面
   - [x] 文档列表展示
   - [x] 文档删除功能
-- [ ] 问答页面
+- [x] 问答页面
   - [x] 问题输入框
   - [x] 回答展示区
   - [x] 来源文档展示
 
-#### Phase 3: 增强功能
-- [ ] 文档详情页面
-- [ ] 响应式设计
-- [ ] 加载状态处理
-- [ ] 错误提示处理
+#### Phase 3: 增强功能 ✅
+- [x] 文档详情页面
+  - [x] DocumentDetailPage 组件
+  - [x] Markdown 渲染 (react-markdown + remark-gfm)
+  - [x] 路由 `/documents/:id`
+- [x] 响应式设计
+  - [x] TailwindCSS Typography 插件
+- [x] 加载状态处理
+  - [x] Loading/Spinner 组件
+- [x] 错误提示处理
+  - [x] Toast 组件
+  - [x] useToast hook
 
 ---
 
@@ -76,8 +83,9 @@ Phase 3     ░░░░░░░░░░░░░░░░░░░░  0%
 |------|------|
 | 前端框架 | React 18 + TypeScript |
 | 构建工具 | Vite |
-| UI 样式 | TailwindCSS |
-| 状态管理 | React Context / useState |
+| UI 样式 | TailwindCSS + Typography 插件 |
+| Markdown | react-markdown + remark-gfm |
+| 路由 | React Router v6 |
 | HTTP 客户端 | fetch (内置) |
 | 包管理 | npm |
 
@@ -85,12 +93,12 @@ Phase 3     ░░░░░░░░░░░░░░░░░░░░  0%
 
 ## 页面规划
 
-```
-/                    → 首页/上传页
-/documents           → 文档列表
-/documents/:id       → 文档详情 (Phase 3)
-/query               → 问答页
-```
+| 路由 | 页面 | 状态 |
+|------|------|------|
+| `/` | 上传页 | ✅ |
+| `/documents` | 文档列表 | ✅ |
+| `/documents/:id` | 文档详情 | ✅ |
+| `/query` | 问答页 | ✅ |
 
 ---
 
@@ -102,12 +110,17 @@ frontend/
 │   ├── components/
 │   │   ├── Header.tsx
 │   │   ├── Layout.tsx
+│   │   ├── Loading.tsx
+│   │   ├── Toast.tsx
 │   │   └── index.ts
 │   ├── pages/
 │   │   ├── UploadPage.tsx
 │   │   ├── DocumentsPage.tsx
 │   │   ├── QueryPage.tsx
+│   │   ├── DocumentDetailPage.tsx
 │   │   └── index.ts
+│   ├── hooks/
+│   │   └── useToast.ts
 │   ├── services/
 │   │   └── api.ts
 │   ├── App.tsx
@@ -125,7 +138,7 @@ frontend/
 
 ```bash
 # 后端 (端口 8000)
-cd backend && python3 -m app.main
+python3 -m app.main
 
 # 前端 (端口 5173)
 cd frontend && npm run dev
@@ -137,6 +150,17 @@ cd frontend && npm run dev
 
 ## 更新日志
 
+### 2026-03-25
+- [x] 前端界面 Phase 3 完成
+  - [x] DocumentDetailPage 完成
+  - [x] Markdown 渲染 (react-markdown + remark-gfm)
+  - [x] Toast 通知组件
+  - [x] Loading 组件
+- [x] 前端构建通过 (tsc + vite build)
+- [x] 前端 Lint 检查通过
+- [x] 更新 README.md 和 TODO.md 进度
+- [x] 修复测试隔离问题 (test_query_empty_knowledge_base 移至正确位置)
+
 ### 2026-03-24
 - [x] 后端 API 开发完成
 - [x] MiniMax-M2.7 集成
@@ -144,3 +168,5 @@ cd frontend && npm run dev
 - [x] SQLite 元数据存储
 - [x] 单元测试通过
 - [x] Phase 1 前端项目初始化完成
+- [x] Phase 2 核心页面完成
+- [x] Phase 3 增强功能 (详情页、Markdown、Toast、Loading)

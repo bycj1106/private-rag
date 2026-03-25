@@ -27,6 +27,19 @@ class TestHealthEndpoint:
         assert "timestamp" in data
 
 
+class TestQueryEndpoint:
+    def test_query_empty_knowledge_base(self):
+        response = client.post(
+            "/query",
+            json={"question": "What is RAG?"}
+        )
+        assert response.status_code == 200
+        data = response.json()
+        assert "answer" in data
+        assert "sources" in data
+        assert data["answer"] == "知识库为空，请先上传文档"
+
+
 class TestDocumentEndpoints:
     def test_create_document(self):
         response = client.post(

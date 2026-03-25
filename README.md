@@ -12,7 +12,7 @@
 | 语义检索 | ✅ 完成 | 基于 embedding 相似度匹配 |
 | RAG 问答 | ✅ 完成 | MiniMax-M2.7 |
 | 文档管理 | ✅ 完成 | 完整 CRUD 操作 |
-| 前端界面 | 🔄 开发中 | React + TailwindCSS + Vite |
+| 前端界面 | ✅ 完成 | React + TailwindCSS + Vite |
 | 本地模型支持 | 📋 规划中 | Ollama 集成 |
 
 ## 技术栈
@@ -41,7 +41,7 @@
 
 ```
 后端开发     ████████████████████ 100%
-前端界面     ████░░░░░░░░░░░░░░░░ 20%
+前端界面     ████████████████████ 100%
 ```
 
 ## 快速开始
@@ -114,6 +114,7 @@ private-rag
 |------|------|------|
 | 上传文档 | `/` | 上传 Markdown 文档到知识库 |
 | 文档列表 | `/documents` | 查看和删除已上传文档 |
+| 文档详情 | `/documents/:id` | 查看文档内容和 Markdown 渲染 |
 | 知识问答 | `/query` | 基于知识库内容进行问答 |
 
 ## 数据流
@@ -135,6 +136,9 @@ private-rag
 ## 运行测试
 
 ```bash
+# 运行所有测试
+python3 -m pytest tests/ -v
+
 # 单元测试
 python3 -m pytest tests/test_document.py -v
 

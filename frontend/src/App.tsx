@@ -3,6 +3,7 @@ import { Layout } from './components/Layout'
 import UploadPage from './pages/UploadPage'
 import DocumentsPage from './pages/DocumentsPage'
 import QueryPage from './pages/QueryPage'
+import DocumentDetailPage from './pages/DocumentDetailPage'
 
 function App() {
   return (
@@ -11,6 +12,7 @@ function App() {
         <Routes>
           <Route path="/" element={<UploadPage />} />
           <Route path="/documents" element={<DocumentsPage />} />
+          <Route path="/documents/:id" element={<DocumentDetailPage />} />
           <Route path="/query" element={<QueryPage />} />
         </Routes>
       </Layout>
