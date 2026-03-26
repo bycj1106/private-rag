@@ -19,17 +19,27 @@ def chunk_text(text: str, chunk_size: int = None, chunk_overlap: int = None) -> 
     
     while start < len(text):
         end = start + chunk_size
+        
         if end >= len(text):
-            chunks.append(text[start:])
+            chunk = text[start:]
+            if chunk.strip():
+                chunks.append(chunk)
             break
         
         chunk = text[start:end]
+        
         sep_pos = chunk.rfind(separator)
         if sep_pos != -1:
-            chunk = chunk[:sep_pos]
+            end = start + sep_pos + len(separator)
+            chunk = text[start:end]
         
-        chunks.append(chunk)
-        start = start + len(chunk) - chunk_overlap if chunk_overlap > 0 else start + len(chunk)
+        if chunk.strip():
+            chunks.append(chunk)
+        
+        if chunk_overlap > 0 and len(chunk.strip()) > chunk_overlap:
+            start = end - chunk_overlap
+        else:
+            start = end
     
     return chunks
 
@@ -54,8 +64,12 @@ def get_document(doc_id: str) -> dict | None:
     return sqlite.get_document(doc_id)
 
 
-def get_all_documents() -> list[dict]:
-    return sqlite.get_all_documents()
+def get_all_documents(limit: int = None, offset: int = None) -> list[dict]:
+    return sqlite.get_all_documents(limit=limit, offset=offset)
+
+
+def get_documents_count() -> int:
+    return sqlite.get_documents_count()
 
 
 def delete_document(doc_id: str) -> bool:

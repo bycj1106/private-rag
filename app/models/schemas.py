@@ -17,6 +17,8 @@ class DocumentResponse(BaseModel):
 class DocumentListResponse(BaseModel):
     documents: list[DocumentResponse]
     total: int
+    page: Optional[int] = 1
+    page_size: Optional[int] = 50
 
 
 class DocumentDetailResponse(BaseModel):
@@ -51,3 +53,5 @@ class QueryResponse(BaseModel):
 class HealthResponse(BaseModel):
     status: str
     timestamp: str
+    database: Optional[str] = "ok"
+    vector_store: Optional[str] = "ok"

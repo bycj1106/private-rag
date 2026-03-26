@@ -1,4 +1,5 @@
 const API_BASE = '/api'
+const DEFAULT_TIMEOUT_MS = 60000
 
 interface Document {
   id: string
@@ -27,23 +28,45 @@ interface QueryResponse {
   sources: SourceDocument[]
 }
 
+class AbortError extends Error {
+  constructor() {
+    super('Request aborted')
+    this.name = 'AbortError'
+  }
+}
+
 async function fetchApi<T>(
   endpoint: string,
-  options?: RequestInit
+  options?: RequestInit,
+  timeoutMs: number = DEFAULT_TIMEOUT_MS
 ): Promise<T> {
-  const response = await fetch(`${API_BASE}${endpoint}`, {
-    headers: {
-      'Content-Type': 'application/json',
-    },
-    ...options,
-  })
+  const controller = new AbortController()
+  const timeoutId = setTimeout(() => controller.abort(), timeoutMs)
 
-  if (!response.ok) {
-    const error = await response.json().catch(() => ({ detail: 'Request failed' }))
-    throw new Error(error.detail || `HTTP ${response.status}`)
+  try {
+    const response = await fetch(`${API_BASE}${endpoint}`, {
+      headers: {
+        'Content-Type': 'application/json',
+      },
+      signal: controller.signal,
+      ...options,
+    })
+
+    clearTimeout(timeoutId)
+
+    if (!response.ok) {
+      const error = await response.json().catch(() => ({ detail: 'Request failed' }))
+      throw new Error(error.detail || `HTTP ${response.status}`)
+    }
+
+    return response.json()
+  } catch (error) {
+    clearTimeout(timeoutId)
+    if (error instanceof Error && error.name === 'AbortError') {
+      throw new AbortError()
+    }
+    throw error
   }
-
-  return response.json()
 }
 
 export const api = {
@@ -78,3 +101,4 @@ export const api = {
 }
 
 export type { Document, DocumentDetail, QueryResponse, SourceDocument }
+export { AbortError }

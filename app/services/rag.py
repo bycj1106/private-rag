@@ -1,4 +1,6 @@
 import httpx
+import time
+import threading
 from typing import Any
 from langchain_core.language_models.chat_models import BaseChatModel
 from langchain_core.messages import BaseMessage, AIMessage
@@ -7,13 +9,50 @@ from app.config import get_settings
 from app.db import chroma
 
 
-MINIMAX_API_URL = "https://api.minimaxi.com/v1/text/chatcompletion_v2"
+_http_client = None
+_http_client_lock = threading.Lock()
+
+
+def get_http_client() -> httpx.Client:
+    global _http_client
+    if _http_client is None:
+        with _http_client_lock:
+            if _http_client is None:
+                _http_client = httpx.Client(timeout=60.0)
+    return _http_client
 
 
 class MiniMaxChat(BaseChatModel):
     model: str = "MiniMax-M2.7"
     temperature: float = 0.7
     max_tokens: int = 2048
+
+    def _generate_with_retry(
+        self,
+        payload: dict,
+        headers: dict
+    ) -> dict:
+        settings = get_settings()
+        last_error = None
+        
+        for attempt in range(settings.api_retry_times):
+            try:
+                client = get_http_client()
+                response = client.post(
+                    settings.minimax_api_url,
+                    json=payload,
+                    headers=headers
+                )
+                response.raise_for_status()
+                return response.json()
+            except (httpx.HTTPError, httpx.TimeoutException) as e:
+                last_error = e
+                if attempt < settings.api_retry_times - 1:
+                    time.sleep(settings.api_retry_delay * (attempt + 1))
+                    continue
+                raise
+        
+        raise last_error
 
     def _generate(
         self,
@@ -42,14 +81,7 @@ class MiniMaxChat(BaseChatModel):
             "Content-Type": "application/json"
         }
         
-        with httpx.Client(timeout=60.0) as client:
-            response = client.post(
-                MINIMAX_API_URL,
-                json=payload,
-                headers=headers
-            )
-            response.raise_for_status()
-            data = response.json()
+        data = self._generate_with_retry(payload, headers)
         
         base_resp = data.get("base_resp", {})
         if base_resp.get("status_code") != 0:

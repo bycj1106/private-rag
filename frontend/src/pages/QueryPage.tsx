@@ -1,11 +1,12 @@
 import { useState } from 'react'
-import { api } from '../services/api'
+import { api, AbortError } from '../services/api'
+import type { SourceDocument } from '../services/api'
 
 export default function QueryPage() {
   const [question, setQuestion] = useState('')
   const [loading, setLoading] = useState(false)
   const [answer, setAnswer] = useState<string | null>(null)
-  const [sources, setSources] = useState<{ file_name: string; content: string; relevance_score: number }[]>([])
+  const [sources, setSources] = useState<SourceDocument[]>([])
   const [error, setError] = useState<string | null>(null)
 
   const handleSubmit = async (e: React.FormEvent) => {
@@ -25,7 +26,11 @@ export default function QueryPage() {
       setAnswer(result.answer)
       setSources(result.sources)
     } catch (err) {
-      setError(err instanceof Error ? err.message : '查询失败')
+      if (err instanceof AbortError) {
+        setError('请求超时，请稍后重试')
+      } else {
+        setError(err instanceof Error ? err.message : '查询失败')
+      }
     } finally {
       setLoading(false)
     }
@@ -83,7 +88,7 @@ export default function QueryPage() {
                     <div className="flex items-center justify-between mb-2">
                       <span className="font-medium text-gray-800">{source.file_name}</span>
                       <span className="text-xs text-gray-400">
-                        相关度: {(1 - source.relevance_score).toFixed(2)}
+                        相似度: {source.relevance_score.toFixed(2)}
                       </span>
                     </div>
                     <p className="text-gray-600 text-sm">{source.content}</p>
