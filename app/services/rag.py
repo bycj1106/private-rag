@@ -33,6 +33,8 @@ class MiniMaxChat(BaseChatModel):
         headers: dict
     ) -> dict:
         settings = get_settings()
+        if not settings.minimax_api_key:
+            raise ValueError("MiniMax API key is not configured")
         last_error = None
         
         for attempt in range(settings.api_retry_times):
@@ -77,7 +79,7 @@ class MiniMaxChat(BaseChatModel):
         }
         
         headers = {
-            "Authorization": f"Bearer {settings.openai_api_key}",
+            "Authorization": f"Bearer {settings.minimax_api_key}",
             "Content-Type": "application/json"
         }
         

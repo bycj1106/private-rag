@@ -6,6 +6,12 @@ class TestHealthEndpoint:
         assert data["status"] == "ok"
         assert "timestamp" in data
 
+    def test_health_check_api_prefix(self, client):
+        response = client.get("/api/health")
+        assert response.status_code == 200
+        data = response.json()
+        assert data["status"] == "ok"
+
 
 class TestDocumentEndpoints:
     def test_create_document(self, client):
@@ -43,6 +49,18 @@ class TestDocumentEndpoints:
         assert response.status_code == 201
         data = response.json()
         assert data["file_name"] == "noextension.md"
+
+    def test_create_document_api_prefix(self, client):
+        response = client.post(
+            "/api/documents",
+            json={
+                "file_content": "# Test Document\n\nThis is a test.",
+                "file_name": "test.md"
+            }
+        )
+        assert response.status_code == 201
+        data = response.json()
+        assert "id" in data
 
     def test_list_documents(self, client):
         client.post(

@@ -1,7 +1,7 @@
 from functools import lru_cache
 from pathlib import Path
 
-from pydantic import Field, field_validator
+from pydantic import AliasChoices, Field, field_validator
 from pydantic_settings import BaseSettings, SettingsConfigDict
 
 
@@ -11,7 +11,10 @@ class Settings(BaseSettings):
         env_file_encoding="utf-8"
     )
 
-    openai_api_key: str = Field(..., min_length=1)
+    minimax_api_key: str = Field(
+        default="",
+        validation_alias=AliasChoices("MINIMAX_API_KEY", "OPENAI_API_KEY")
+    )
     minimax_api_url: str = "https://api.minimaxi.com/v1/text/chatcompletion_v2"
     minimax_model: str = "MiniMax-M2.7"
     temperature: float = Field(default=0.7, ge=0.0, le=2.0)
@@ -37,6 +40,11 @@ class Settings(BaseSettings):
         if not v.startswith('http://') and not v.startswith('https://'):
             raise ValueError('URL must start with http:// or https://')
         return v.rstrip('/')
+
+    @field_validator("minimax_api_key")
+    @classmethod
+    def normalize_api_key(cls, v: str) -> str:
+        return v.strip()
 
 
 @lru_cache()

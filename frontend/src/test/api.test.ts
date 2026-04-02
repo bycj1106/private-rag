@@ -1,9 +1,17 @@
 import { describe, it, expect, vi, beforeEach } from 'vitest'
 import { api, AbortError } from '../services/api'
 
-global.fetch = vi.fn()
+globalThis.fetch = vi.fn()
 
-const mockFetch = global.fetch as ReturnType<typeof vi.fn>
+const mockFetch = vi.mocked(globalThis.fetch)
+
+function mockJsonResponse(body: unknown, init?: { ok?: boolean; status?: number }): Response {
+  return {
+    ok: init?.ok ?? true,
+    status: init?.status ?? 200,
+    json: async () => body,
+  } as Response
+}
 
 describe('api service', () => {
   beforeEach(() => {
@@ -18,10 +26,7 @@ describe('api service', () => {
         chunk_count: 1,
         created_at: '2024-01-01'
       }
-      mockFetch.mockResolvedValueOnce({
-        ok: true,
-        json: () => Promise.resolve(mockResponse)
-      })
+      mockFetch.mockResolvedValueOnce(mockJsonResponse(mockResponse))
 
       const result = await api.createDocument('# Test', 'test.md')
 
@@ -34,11 +39,9 @@ describe('api service', () => {
     })
 
     it('should throw error on failure', async () => {
-      mockFetch.mockResolvedValueOnce({
-        ok: false,
-        status: 400,
-        json: () => Promise.resolve({ detail: 'Bad request' })
-      })
+      mockFetch.mockResolvedValueOnce(
+        mockJsonResponse({ detail: 'Bad request' }, { ok: false, status: 400 })
+      )
 
       await expect(api.createDocument('', '')).rejects.toThrow('Bad request')
     })
@@ -50,10 +53,7 @@ describe('api service', () => {
         documents: [{ id: '1', file_name: 'doc.md', chunk_count: 1, created_at: '2024-01-01' }],
         total: 1
       }
-      mockFetch.mockResolvedValueOnce({
-        ok: true,
-        json: () => Promise.resolve(mockResponse)
-      })
+      mockFetch.mockResolvedValueOnce(mockJsonResponse(mockResponse))
 
       const result = await api.getDocuments()
 
@@ -71,10 +71,7 @@ describe('api service', () => {
         chunk_count: 1,
         created_at: '2024-01-01'
       }
-      mockFetch.mockResolvedValueOnce({
-        ok: true,
-        json: () => Promise.resolve(mockResponse)
-      })
+      mockFetch.mockResolvedValueOnce(mockJsonResponse(mockResponse))
 
       const result = await api.getDocument('123')
 
@@ -83,11 +80,9 @@ describe('api service', () => {
     })
 
     it('should throw 404 error for non-existent document', async () => {
-      mockFetch.mockResolvedValueOnce({
-        ok: false,
-        status: 404,
-        json: () => Promise.resolve({ detail: 'Document not found' })
-      })
+      mockFetch.mockResolvedValueOnce(
+        mockJsonResponse({ detail: 'Document not found' }, { ok: false, status: 404 })
+      )
 
       await expect(api.getDocument('nonexistent')).rejects.toThrow('Document not found')
     })
@@ -96,10 +91,7 @@ describe('api service', () => {
   describe('deleteDocument', () => {
     it('should delete document successfully', async () => {
       const mockResponse = { message: 'Document deleted successfully', id: '123' }
-      mockFetch.mockResolvedValueOnce({
-        ok: true,
-        json: () => Promise.resolve(mockResponse)
-      })
+      mockFetch.mockResolvedValueOnce(mockJsonResponse(mockResponse))
 
       const result = await api.deleteDocument('123')
 
@@ -114,10 +106,7 @@ describe('api service', () => {
         answer: 'Test answer',
         sources: [{ content: 'source content', file_name: 'doc.md', relevance_score: 0.9 }]
       }
-      mockFetch.mockResolvedValueOnce({
-        ok: true,
-        json: () => Promise.resolve(mockResponse)
-      })
+      mockFetch.mockResolvedValueOnce(mockJsonResponse(mockResponse))
 
       const result = await api.query('What is test?')
 
@@ -130,10 +119,7 @@ describe('api service', () => {
 
     it('should pass topK parameter', async () => {
       const mockResponse = { answer: 'Answer', sources: [] }
-      mockFetch.mockResolvedValueOnce({
-        ok: true,
-        json: () => Promise.resolve(mockResponse)
-      })
+      mockFetch.mockResolvedValueOnce(mockJsonResponse(mockResponse))
 
       await api.query('Test question', 5)
 
@@ -146,10 +132,7 @@ describe('api service', () => {
   describe('health', () => {
     it('should return health status', async () => {
       const mockResponse = { status: 'ok', timestamp: '2024-01-01T00:00:00Z' }
-      mockFetch.mockResolvedValueOnce({
-        ok: true,
-        json: () => Promise.resolve(mockResponse)
-      })
+      mockFetch.mockResolvedValueOnce(mockJsonResponse(mockResponse))
 
       const result = await api.health()
 
