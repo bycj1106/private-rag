@@ -1,7 +1,9 @@
-import { useState, useEffect } from 'react'
+import { useState, useEffect, useCallback, useRef } from 'react'
 import { useParams, Link } from 'react-router-dom'
 import ReactMarkdown from 'react-markdown'
 import remarkGfm from 'remark-gfm'
+import rehypeSanitize from 'rehype-sanitize'
+import rehypeRaw from 'rehype-raw'
 import { api } from '../services/api'
 import type { DocumentDetail } from '../services/api'
 
@@ -10,6 +12,26 @@ export default function DocumentDetailPage() {
   const [document, setDocument] = useState<DocumentDetail | null>(null)
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState<string | null>(null)
+  const latestIdRef = useRef<string | null>(id)
+
+  const fetchDocument = useCallback(async (docId: string) => {
+    setLoading(true)
+    setError(null)
+    try {
+      const doc = await api.getDocument(docId)
+      if (latestIdRef.current === docId) {
+        setDocument(doc)
+      }
+    } catch (err) {
+      if (latestIdRef.current === docId) {
+        setError(err instanceof Error ? err.message : '获取文档失败')
+      }
+    } finally {
+      if (latestIdRef.current === docId) {
+        setLoading(false)
+      }
+    }
+  }, [])
 
   useEffect(() => {
     if (!id) {
@@ -18,21 +40,13 @@ export default function DocumentDetailPage() {
       return
     }
 
-    const fetchDocument = async () => {
-      setLoading(true)
-      setError(null)
-      try {
-        const doc = await api.getDocument(id)
-        setDocument(doc)
-      } catch (err) {
-        setError(err instanceof Error ? err.message : '获取文档失败')
-      } finally {
-        setLoading(false)
-      }
-    }
+    latestIdRef.current = id
+    fetchDocument(id)
 
-    fetchDocument()
-  }, [id])
+    return () => {
+      latestIdRef.current = null
+    }
+  }, [id, fetchDocument])
 
   if (loading) {
     return (
@@ -54,7 +68,14 @@ export default function DocumentDetailPage() {
   }
 
   if (!document) {
-    return null
+    return (
+      <div className="text-center py-12">
+        <p className="text-gray-500 mb-4">文档不存在</p>
+        <Link to="/documents" className="btn btn-secondary">
+          返回文档列表
+        </Link>
+      </div>
+    )
   }
 
   return (
@@ -79,7 +100,10 @@ export default function DocumentDetailPage() {
         </div>
 
         <div className="prose prose-gray max-w-none">
-          <ReactMarkdown remarkPlugins={[remarkGfm]}>
+          <ReactMarkdown
+            remarkPlugins={[remarkGfm]}
+            rehypePlugins={[rehypeSanitize, rehypeRaw]}
+          >
             {document.content}
           </ReactMarkdown>
         </div>

@@ -54,7 +54,7 @@ export default function UploadPage() {
       <form onSubmit={handleSubmit} className="space-y-6">
         <div>
           <label htmlFor="fileName" className="block text-sm font-medium text-gray-700 mb-2">
-            文件名
+            文件名 <span className="text-gray-400 text-xs">(最多 255 字符)</span>
           </label>
           <input
             type="text"
@@ -62,6 +62,7 @@ export default function UploadPage() {
             value={fileName}
             onChange={(e) => setFileName(e.target.value)}
             placeholder="my-document.md"
+            maxLength={255}
             className="input"
             disabled={loading}
           />
@@ -69,7 +70,7 @@ export default function UploadPage() {
 
         <div>
           <label htmlFor="content" className="block text-sm font-medium text-gray-700 mb-2">
-            文档内容
+            文档内容 <span className="text-gray-400 text-xs">(最多 10MB)</span>
           </label>
           <textarea
             id="content"
