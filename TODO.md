@@ -5,10 +5,9 @@
 ```
 后端开发     ████████████████████ 100%
 前端界面     ████████████████████ 100%
-
-Phase 1     ████████████████████ 100%
-Phase 2     ████████████████████ 100%
-Phase 3     ████████████████████ 100%
+代码优化     ████████████████████ 100%
+测试完善     ████████████████████ 100%
+文档部署     ████████████████████ 100%
 ```
 
 ---
@@ -55,25 +54,25 @@ Phase 3     ████████████████████ 100%
 
 ### P1 - 代码优化
 
-- [ ] MiniMax API 配置移至 env 文件
-- [ ] Embedding 模型切换为本地模型
-- [ ] 添加 API 请求重试机制
+- [x] MiniMax API 配置移至 env 文件
+- [x] Embedding 模型切换为本地模型 (Ollama)
+- [x] 添加 API 请求重试机制
 
 ---
 
 ### P2 - 测试完善
 
-- [ ] Query endpoint 集成测试
-- [ ] 端到端 RAG 流程测试
-- [ ] 前端组件单元测试
+- [x] Query endpoint 集成测试
+- [x] 端到端 RAG 流程测试
+- [x] 前端组件单元测试 (Vitest + RTL)
 
 ---
 
 ### P3 - 文档与部署
 
-- [ ] 完善 README.md
-- [ ] API 文档
-- [ ] 部署脚本/配置
+- [x] 完善 README.md
+- [x] API 文档
+- [x] 部署脚本/配置 (Docker + docker-compose)
 
 ---
 
@@ -160,6 +159,38 @@ cd frontend && npm run dev
 - [x] 前端 Lint 检查通过
 - [x] 更新 README.md 和 TODO.md 进度
 - [x] 修复测试隔离问题 (test_query_empty_knowledge_base 移至正确位置)
+- [x] P1 代码优化完成
+  - [x] MiniMax API URL 移至 env 配置
+  - [x] Ollama embedding 支持 (USE_LOCAL_EMBEDDING=true 启用)
+  - [x] API 请求重试机制 (默认 3 次，指数退避)
+  - [x] 添加 langchain-ollama 依赖
+- [x] 代码审查修复
+  - [x] CORS 配置修复 (限制来源)
+  - [x] 添加 env/.env 到 .gitignore
+  - [x] 修复测试类重复定义 (TestQueryEndpoint)
+  - [x] 修复 get_embedding_function 线程安全 (添加锁)
+  - [x] HTTP 连接池 (httpx 共享客户端)
+  - [x] 文档列表分页支持
+  - [x] 健康检查增强 (检查 SQLite 和 Chroma)
+  - [x] Markdown XSS 防护 (rehype-sanitize)
+  - [x] 输入验证 (maxLength)
+  - [x] 类型导入修复 (SourceDocument)
+  - [x] 空 chunk 过滤
+  - [x] Race condition 修复 (DocumentDetailPage)
+  - [x] useCallback 优化 (useToast)
+  - [x] 配置验证 (Pydantic Field validators)
+- [x] P2 测试完善完成
+  - [x] 添加 pytest conftest.py (测试fixtures)
+  - [x] 新增 test_query.py (分页、健康检查测试)
+  - [x] 前端测试设置 (Vitest + RTL)
+  - [x] useToast hook 单元测试
+  - [x] 23 个后端测试全部通过
+  - [x] 4 个前端测试全部通过
+- [x] P3 文档与部署完成
+  - [x] 完善 README.md (API文档、故障排除、Ollama使用指南)
+  - [x] Docker 配置 (Dockerfile, Dockerfile.frontend)
+  - [x] docker-compose.yml
+  - [x] 更新 .env.example
 
 ### 2026-03-24
 - [x] 后端 API 开发完成
