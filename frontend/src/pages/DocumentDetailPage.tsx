@@ -102,7 +102,7 @@ export default function DocumentDetailPage() {
         <div className="prose prose-gray max-w-none">
           <ReactMarkdown
             remarkPlugins={[remarkGfm]}
-            rehypePlugins={[rehypeSanitize, rehypeRaw]}
+            rehypePlugins={[rehypeRaw, rehypeSanitize]}
           >
             {document.content}
           </ReactMarkdown>

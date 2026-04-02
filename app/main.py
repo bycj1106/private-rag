@@ -1,22 +1,17 @@
-from contextlib import asynccontextmanager
 from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
 from app.api.routes import router
 from app.db.sqlite import init_db
-from app.config import get_settings
+from app.config import ensure_data_dirs, get_settings
 
-
-@asynccontextmanager
-async def lifespan(app: FastAPI):
-    init_db()
-    yield
+ensure_data_dirs()
+init_db()
 
 
 app = FastAPI(
     title="Private RAG Knowledge Base",
     description="Personal RAG Knowledge Base API for AI application development learning",
-    version="1.0.0",
-    lifespan=lifespan
+    version="1.0.0"
 )
 
 settings = get_settings()
