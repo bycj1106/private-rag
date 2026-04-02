@@ -1,4 +1,5 @@
 from app.db import sqlite, chroma
+from app.config import get_settings
 
 
 def ensure_file_name_has_md_extension(file_name: str) -> str:
@@ -8,10 +9,14 @@ def ensure_file_name_has_md_extension(file_name: str) -> str:
 
 
 def chunk_text(text: str, chunk_size: int = None, chunk_overlap: int = None) -> list[str]:
+    settings = get_settings()
     if chunk_size is None:
-        chunk_size = 500
+        chunk_size = settings.chunk_size
     if chunk_overlap is None:
-        chunk_overlap = 50
+        chunk_overlap = settings.chunk_overlap
+
+    if not text or not text.strip():
+        return []
     
     separator = "\n\n"
     chunks = []
@@ -29,17 +34,16 @@ def chunk_text(text: str, chunk_size: int = None, chunk_overlap: int = None) -> 
         chunk = text[start:end]
         
         sep_pos = chunk.rfind(separator)
-        if sep_pos != -1:
+        if sep_pos > 0:
             end = start + sep_pos + len(separator)
             chunk = text[start:end]
         
         if chunk.strip():
             chunks.append(chunk)
         
-        if chunk_overlap > 0 and len(chunk.strip()) > chunk_overlap:
-            start = end - chunk_overlap
-        else:
-            start = end
+        effective_overlap = min(chunk_overlap, chunk_size - 1) if chunk_overlap > 0 else 0
+        next_start = end - effective_overlap if effective_overlap > 0 else end
+        start = next_start if next_start > start else end
     
     return chunks
 
@@ -54,8 +58,12 @@ def create_document(file_content: str, file_name: str) -> dict:
     chunk_count = len(chunks)
     
     doc = sqlite.create_document(file_name, file_content, chunk_count)
-    
-    chroma.add_chunks(doc["id"], chunks, file_name)
+
+    try:
+        chroma.add_chunks(doc["id"], chunks, file_name)
+    except Exception:
+        sqlite.delete_document(doc["id"])
+        raise
     
     return doc
 

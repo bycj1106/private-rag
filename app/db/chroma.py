@@ -1,6 +1,7 @@
 import chromadb
+import logging
 import threading
-from app.config import get_settings
+from app.config import ensure_data_dirs, get_settings
 
 
 _client = None
@@ -31,6 +32,7 @@ def get_chroma_client():
     if _client is None:
         with _client_lock:
             if _client is None:
+                ensure_data_dirs()
                 settings = get_settings()
                 _client = chromadb.PersistentClient(path=settings.chroma_dir)
     return _client
@@ -47,18 +49,23 @@ def get_collection():
 
 def add_chunks(document_id: str, chunks: list[str], file_name: str):
     collection = get_collection()
-    
-    ids = [f"{document_id}_{i}" for i in range(len(chunks))]
-    metadatas = [
-        {"document_id": document_id, "file_name": file_name, "chunk_index": i}
-        for i in range(len(chunks))
-    ]
-    
-    collection.add(
-        ids=ids,
-        documents=chunks,
-        metadatas=metadatas
-    )
+    settings = get_settings()
+    batch_size = settings.chroma_batch_size
+
+    for batch_start in range(0, len(chunks), batch_size):
+        batch_chunks = chunks[batch_start:batch_start + batch_size]
+        collection.add(
+            ids=[f"{document_id}_{batch_start + i}" for i in range(len(batch_chunks))],
+            documents=batch_chunks,
+            metadatas=[
+                {
+                    "document_id": document_id,
+                    "file_name": file_name,
+                    "chunk_index": batch_start + i
+                }
+                for i in range(len(batch_chunks))
+            ]
+        )
 
 
 def search_chunks(query: str, top_k: int) -> list[dict]:
@@ -71,12 +78,15 @@ def search_chunks(query: str, top_k: int) -> list[dict]:
     
     chunks = []
     if results["documents"] and results["documents"][0]:
+        distances = results["distances"][0] if results["distances"] else []
+        max_distance = max(distances) if distances else 1.0
         for i, doc in enumerate(results["documents"][0]):
-            distance = float(results["distances"][0][i]) if results["distances"] else 0.0
+            distance = float(distances[i]) if distances else 0.0
+            relevance_score = 1.0 - (distance / max_distance) if max_distance > 0 else 1.0
             chunks.append({
                 "content": doc,
                 "file_name": results["metadatas"][0][i]["file_name"],
-                "relevance_score": max(0.0, 1.0 - distance)
+                "relevance_score": max(0.0, min(1.0, relevance_score))
             })
     
     return chunks
@@ -84,9 +94,20 @@ def search_chunks(query: str, top_k: int) -> list[dict]:
 
 def delete_chunks(document_id: str):
     collection = get_collection()
-    collection.delete(where={"document_id": document_id})
+    try:
+        collection.delete(where={"document_id": document_id})
+    except Exception as e:
+        logger = logging.getLogger(__name__)
+        logger.error(f"Failed to delete chunks for document {document_id}: {e}")
+        raise
 
 
 def get_collection_count() -> int:
     collection = get_collection()
     return collection.count()
+
+
+def health_check() -> bool:
+    client = get_chroma_client()
+    client.heartbeat()
+    return True

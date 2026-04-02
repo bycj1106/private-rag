@@ -74,9 +74,11 @@ async def get_document(doc_id: str):
 
 @router.delete("/documents/{doc_id}", response_model=DocumentDeleteResponse)
 async def delete_document(doc_id: str):
-    success = document.delete_document(doc_id)
-    if not success:
+    doc = document.get_document(doc_id)
+    if not doc:
         raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Document not found")
+    
+    document.delete_document(doc_id)
     
     return DocumentDeleteResponse(
         message="Document deleted successfully",
@@ -114,12 +116,12 @@ async def health_check():
     vector_status = "ok"
     
     try:
-        sqlite.get_all_documents()
+        sqlite.health_check()
     except Exception:
         db_status = "error"
     
     try:
-        chroma.get_collection_count()
+        chroma.health_check()
     except Exception:
         vector_status = "error"
     

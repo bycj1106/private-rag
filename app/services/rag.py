@@ -3,7 +3,7 @@ import time
 import threading
 from typing import Any
 from langchain_core.language_models.chat_models import BaseChatModel
-from langchain_core.messages import BaseMessage, AIMessage
+from langchain_core.messages import BaseMessage, AIMessage, HumanMessage
 from langchain_core.outputs import ChatGeneration, ChatResult
 from app.config import get_settings
 from app.db import chroma
@@ -13,7 +13,7 @@ _http_client = None
 _http_client_lock = threading.Lock()
 
 
-def get_http_client() -> httpx.Client:
+def _get_http_client() -> httpx.Client:
     global _http_client
     if _http_client is None:
         with _http_client_lock:
@@ -37,7 +37,7 @@ class MiniMaxChat(BaseChatModel):
         
         for attempt in range(settings.api_retry_times):
             try:
-                client = get_http_client()
+                client = _get_http_client()
                 response = client.post(
                     settings.minimax_api_url,
                     json=payload,
@@ -104,17 +104,41 @@ class MiniMaxChat(BaseChatModel):
 
 
 _minimax_llm = None
+_llm_lock = threading.Lock()
 
 
 def get_llm() -> MiniMaxChat:
     global _minimax_llm
     if _minimax_llm is None:
-        settings = get_settings()
-        _minimax_llm = MiniMaxChat(
-            model="MiniMax-M2.7",
-            temperature=0.7
-        )
+        with _llm_lock:
+            if _minimax_llm is None:
+                settings = get_settings()
+                _minimax_llm = MiniMaxChat(
+                    model=settings.minimax_model,
+                    temperature=settings.temperature
+                )
     return _minimax_llm
+
+
+def build_context(chunks: list[dict], max_chars: int) -> str:
+    sections: list[str] = []
+    current_size = 0
+
+    for chunk in chunks:
+        section = f"[{chunk['file_name']}]\n{chunk['content']}"
+        section_size = len(section) + (2 if sections else 0)
+
+        if sections and current_size + section_size > max_chars:
+            break
+
+        if not sections and section_size > max_chars:
+            sections.append(section[:max_chars].rstrip())
+            break
+
+        sections.append(section)
+        current_size += section_size
+
+    return "\n\n".join(sections)
 
 
 def query(question: str, top_k: int = None) -> dict:
@@ -139,10 +163,7 @@ def query(question: str, top_k: int = None) -> dict:
             "sources": []
         }
     
-    context = "\n\n".join([
-        f"[{chunk['file_name']}]\n{chunk['content']}"
-        for chunk in chunks
-    ])
+    context = build_context(chunks, settings.max_context_chars)
     
     prompt = f"""基于以下文档内容回答问题。如果文档中没有相关信息，请说明无法回答。
 
@@ -153,7 +174,7 @@ def query(question: str, top_k: int = None) -> dict:
 
 回答："""
     
-    messages = [BaseMessage(type="user", content=prompt)]
+    messages = [HumanMessage(content=prompt)]
     llm = get_llm()
     result = llm.invoke(messages)
     

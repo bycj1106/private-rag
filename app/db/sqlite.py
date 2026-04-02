@@ -3,15 +3,19 @@ import uuid
 from datetime import datetime, timezone
 from typing import Optional, Generator
 from contextlib import contextmanager
-from app.config import get_settings
+from app.config import ensure_data_dirs, get_settings
 
 
 @contextmanager
 def get_connection() -> Generator[sqlite3.Connection, None, None]:
+    ensure_data_dirs()
     settings = get_settings()
-    conn = sqlite3.connect(settings.db_path)
+    conn = sqlite3.connect(settings.db_path, timeout=30.0)
     conn.row_factory = sqlite3.Row
     try:
+        conn.execute("PRAGMA journal_mode=WAL")
+        conn.execute("PRAGMA synchronous=NORMAL")
+        conn.execute("PRAGMA busy_timeout = 30000")
         yield conn
     finally:
         conn.close()
@@ -47,7 +51,6 @@ def create_document(file_name: str, content: str, chunk_count: int) -> dict:
     return {
         "id": doc_id,
         "file_name": file_name,
-        "content": content,
         "chunk_count": chunk_count,
         "created_at": created_at
     }
@@ -107,3 +110,9 @@ def document_exists(doc_id: str) -> bool:
         exists = cursor.fetchone() is not None
     
     return exists
+
+
+def health_check() -> bool:
+    with get_connection() as conn:
+        conn.execute("SELECT 1")
+    return True

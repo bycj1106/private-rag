@@ -1,5 +1,6 @@
 import pytest
 from app.services.document import chunk_text, ensure_file_name_has_md_extension
+from app.services.rag import build_context
 from app.db import sqlite, chroma
 
 
@@ -133,6 +134,17 @@ class TestQueryWithDocument:
             json={"question": "Test", "top_k": 0}
         )
         assert response.status_code in (400, 422)
+
+
+class TestRagContextLimit:
+    def test_build_context_limits_total_size(self):
+        chunks = [
+            {"file_name": "a.md", "content": "A" * 120},
+            {"file_name": "b.md", "content": "B" * 120},
+        ]
+        context = build_context(chunks, max_chars=100)
+        assert len(context) <= 100
+        assert "[a.md]" in context
 
 
 class TestHealthCheckDetails:
