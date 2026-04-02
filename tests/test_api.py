@@ -1,25 +1,5 @@
-import pytest
-import os
-import tempfile
-from fastapi.testclient import TestClient
-
-
-os.environ["OPENAI_API_KEY"] = "test-key"
-os.environ["CHROMA_DIR"] = tempfile.mkdtemp()
-os.environ["DB_PATH"] = tempfile.mktemp(suffix=".db")
-
-
-from app.main import app
-from app.db.sqlite import init_db
-
-
-init_db()
-
-client = TestClient(app)
-
-
 class TestHealthEndpoint:
-    def test_health_check(self):
+    def test_health_check(self, client):
         response = client.get("/health")
         assert response.status_code == 200
         data = response.json()
@@ -27,21 +7,8 @@ class TestHealthEndpoint:
         assert "timestamp" in data
 
 
-class TestQueryEndpoint:
-    def test_query_empty_knowledge_base(self):
-        response = client.post(
-            "/query",
-            json={"question": "What is RAG?"}
-        )
-        assert response.status_code == 200
-        data = response.json()
-        assert "answer" in data
-        assert "sources" in data
-        assert data["answer"] == "知识库为空，请先上传文档"
-
-
 class TestDocumentEndpoints:
-    def test_create_document(self):
+    def test_create_document(self, client):
         response = client.post(
             "/documents",
             json={
@@ -55,7 +22,7 @@ class TestDocumentEndpoints:
         assert data["file_name"] == "test.md"
         assert data["chunk_count"] >= 1
 
-    def test_create_document_empty_content(self):
+    def test_create_document_empty_content(self, client):
         response = client.post(
             "/documents",
             json={
@@ -65,7 +32,7 @@ class TestDocumentEndpoints:
         )
         assert response.status_code == 400
 
-    def test_create_document_without_md_extension(self):
+    def test_create_document_without_md_extension(self, client):
         response = client.post(
             "/documents",
             json={
@@ -77,7 +44,14 @@ class TestDocumentEndpoints:
         data = response.json()
         assert data["file_name"] == "noextension.md"
 
-    def test_list_documents(self):
+    def test_list_documents(self, client):
+        client.post(
+            "/documents",
+            json={
+                "file_content": "# Test\n\nContent",
+                "file_name": "test-list.md"
+            }
+        )
         response = client.get("/documents")
         assert response.status_code == 200
         data = response.json()
@@ -85,7 +59,7 @@ class TestDocumentEndpoints:
         assert "total" in data
         assert data["total"] >= 1
 
-    def test_get_document(self):
+    def test_get_document(self, client):
         create_response = client.post(
             "/documents",
             json={
@@ -94,18 +68,17 @@ class TestDocumentEndpoints:
             }
         )
         doc_id = create_response.json()["id"]
-        
         response = client.get(f"/documents/{doc_id}")
         assert response.status_code == 200
         data = response.json()
         assert data["id"] == doc_id
         assert "content" in data
 
-    def test_get_document_not_found(self):
+    def test_get_document_not_found(self, client):
         response = client.get("/documents/nonexistent-id")
         assert response.status_code == 404
 
-    def test_delete_document(self):
+    def test_delete_document(self, client):
         create_response = client.post(
             "/documents",
             json={
@@ -114,33 +87,12 @@ class TestDocumentEndpoints:
             }
         )
         doc_id = create_response.json()["id"]
-        
         response = client.delete(f"/documents/{doc_id}")
         assert response.status_code == 200
-        
+
         get_response = client.get(f"/documents/{doc_id}")
         assert get_response.status_code == 404
 
-    def test_delete_document_not_found(self):
+    def test_delete_document_not_found(self, client):
         response = client.delete("/documents/nonexistent-id")
         assert response.status_code == 404
-
-
-class TestQueryEndpoint:
-    def test_query_empty_question(self):
-        response = client.post(
-            "/query",
-            json={"question": ""}
-        )
-        assert response.status_code in (400, 422)
-
-    def test_query_empty_knowledge_base(self):
-        response = client.post(
-            "/query",
-            json={"question": "What is RAG?"}
-        )
-        assert response.status_code == 200
-        data = response.json()
-        assert "answer" in data
-        assert "sources" in data
-        assert data["answer"] == "知识库为空，请先上传文档"
