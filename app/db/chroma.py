@@ -1,13 +1,60 @@
 import chromadb
 import logging
 import threading
+from typing import TypedDict
+
 from app.config import ensure_data_dirs, get_settings
 
 
+class SearchChunk(TypedDict):
+    content: str
+    file_name: str
+    relevance_score: float
+
+
+class QueryMetadata(TypedDict, total=False):
+    file_name: str
+
+
+class QueryResults(TypedDict, total=False):
+    documents: list[list[str]]
+    metadatas: list[list[QueryMetadata]]
+    distances: list[list[float]]
+
+
+logger = logging.getLogger(__name__)
 _client = None
 _client_lock = threading.Lock()
 _embedding_function = None
 _embedding_lock = threading.Lock()
+_collection = None
+_collection_lock = threading.Lock()
+
+
+def _to_search_result(results: QueryResults) -> list[SearchChunk]:
+    documents = results.get("documents") or []
+    metadatas = results.get("metadatas") or []
+    distances_by_query = results.get("distances") or []
+    query_documents = documents[0] if documents else []
+
+    if not query_documents:
+        return []
+
+    query_metadatas = metadatas[0] if metadatas else []
+    distances = distances_by_query[0] if distances_by_query else []
+    max_distance = max(distances) if distances else 1.0
+
+    chunks: list[SearchChunk] = []
+    for index, doc in enumerate(query_documents):
+        distance = float(distances[index]) if index < len(distances) else 0.0
+        metadata = query_metadatas[index] if index < len(query_metadatas) else {}
+        relevance_score = 1.0 - (distance / max_distance) if max_distance > 0 else 1.0
+        chunks.append({
+            "content": doc,
+            "file_name": metadata.get("file_name", "unknown"),
+            "relevance_score": max(0.0, min(1.0, relevance_score))
+        })
+    return chunks
 
 
 def get_embedding_function():
@@ -39,12 +86,17 @@ def get_chroma_client():
 
 
 def get_collection():
-    client = get_chroma_client()
-    embedding_fn = get_embedding_function()
-    return client.get_or_create_collection(
-        name="documents",
-        embedding_function=embedding_fn
-    )
+    global _collection
+    if _collection is None:
+        with _collection_lock:
+            if _collection is None:
+                client = get_chroma_client()
+                embedding_fn = get_embedding_function()
+                _collection = client.get_or_create_collection(
+                    name="documents",
+                    embedding_function=embedding_fn
+                )
+    return _collection
 
 
 def add_chunks(document_id: str, chunks: list[str], file_name: str):
@@ -68,28 +120,10 @@ def add_chunks(document_id: str, chunks: list[str], file_name: str):
         )
 
 
-def search_chunks(query: str, top_k: int) -> list[dict]:
+def search_chunks(query: str, top_k: int) -> list[SearchChunk]:
     collection = get_collection()
-    
-    results = collection.query(
-        query_texts=[query],
-        n_results=top_k
-    )
-    
-    chunks = []
-    if results["documents"] and results["documents"][0]:
-        distances = results["distances"][0] if results["distances"] else []
-        max_distance = max(distances) if distances else 1.0
-        for i, doc in enumerate(results["documents"][0]):
-            distance = float(distances[i]) if distances else 0.0
-            relevance_score = 1.0 - (distance / max_distance) if max_distance > 0 else 1.0
-            chunks.append({
-                "content": doc,
-                "file_name": results["metadatas"][0][i]["file_name"],
-                "relevance_score": max(0.0, min(1.0, relevance_score))
-            })
-    
-    return chunks
+    results = collection.query(query_texts=[query], n_results=top_k)
+    return _to_search_result(results)
 
 
 def delete_chunks(document_id: str):
@@ -97,7 +131,6 @@ def delete_chunks(document_id: str):
     try:
         collection.delete(where={"document_id": document_id})
     except Exception as e:
-        logger = logging.getLogger(__name__)
         logger.error(f"Failed to delete chunks for document {document_id}: {e}")
         raise
 

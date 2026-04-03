@@ -112,7 +112,7 @@ describe('api service', () => {
 
       expect(mockFetch).toHaveBeenCalledWith('/api/query', expect.objectContaining({
         method: 'POST',
-        body: JSON.stringify({ question: 'What is test?', top_k: undefined })
+        body: JSON.stringify({ question: 'What is test?', top_k: 5 })
       }))
       expect(result).toEqual(mockResponse)
     })
@@ -146,6 +146,17 @@ describe('api service', () => {
       const error = new AbortError()
       expect(error.name).toBe('AbortError')
       expect(error.message).toBe('Request aborted')
+    })
+
+    it('should convert aborted request into AbortError', async () => {
+      const controller = new AbortController()
+      mockFetch.mockImplementationOnce(async (_input, init) => {
+        controller.abort()
+        const signal = init?.signal as AbortSignal
+        throw new DOMException('Aborted', signal.aborted ? 'AbortError' : 'Error')
+      })
+
+      await expect(api.getDocuments({ signal: controller.signal })).rejects.toBeInstanceOf(AbortError)
     })
   })
 })

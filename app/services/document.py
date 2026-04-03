@@ -1,5 +1,13 @@
 from app.db import sqlite, chroma
+from app.db.sqlite import DocumentDetailRecord, DocumentRecord
 from app.config import get_settings
+
+
+def _normalize_non_empty_text(value: str, error_message: str) -> str:
+    normalized = value.strip()
+    if not normalized:
+        raise ValueError(error_message)
+    return normalized
 
 
 def ensure_file_name_has_md_extension(file_name: str) -> str:
@@ -48,15 +56,12 @@ def chunk_text(text: str, chunk_size: int = None, chunk_overlap: int = None) -> 
     return chunks
 
 
-def create_document(file_content: str, file_name: str) -> dict:
-    if not file_content or not file_content.strip():
-        raise ValueError("Document content cannot be empty")
-    
+def create_document(file_content: str, file_name: str) -> DocumentRecord:
+    _normalize_non_empty_text(file_content, "Document content cannot be empty")
+    file_name = _normalize_non_empty_text(file_name, "File name cannot be empty")
     file_name = ensure_file_name_has_md_extension(file_name)
-    
     chunks = chunk_text(file_content)
     chunk_count = len(chunks)
-    
     doc = sqlite.create_document(file_name, file_content, chunk_count)
 
     try:
@@ -68,11 +73,11 @@ def create_document(file_content: str, file_name: str) -> dict:
     return doc
 
 
-def get_document(doc_id: str) -> dict | None:
+def get_document(doc_id: str) -> DocumentDetailRecord | None:
     return sqlite.get_document(doc_id)
 
 
-def get_all_documents(limit: int = None, offset: int = None) -> list[dict]:
+def get_all_documents(limit: int = None, offset: int = None) -> list[DocumentRecord]:
     return sqlite.get_all_documents(limit=limit, offset=offset)
 
 
@@ -81,8 +86,5 @@ def get_documents_count() -> int:
 
 
 def delete_document(doc_id: str) -> bool:
-    if not sqlite.document_exists(doc_id):
-        return False
-    
     chroma.delete_chunks(doc_id)
     return sqlite.delete_document(doc_id)

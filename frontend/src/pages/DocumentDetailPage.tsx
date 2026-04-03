@@ -1,37 +1,23 @@
-import { useState, useEffect, useCallback, useRef } from 'react'
+import { useState, useEffect } from 'react'
 import { useParams, Link } from 'react-router-dom'
 import ReactMarkdown from 'react-markdown'
 import remarkGfm from 'remark-gfm'
 import rehypeSanitize from 'rehype-sanitize'
-import rehypeRaw from 'rehype-raw'
+
+import { LoadingState, StatusCard } from '../components/Feedback'
 import { api } from '../services/api'
 import type { DocumentDetail } from '../services/api'
+import { formatTimestamp } from '../utils/format'
+
+
+const markdownRemarkPlugins = [remarkGfm]
+const markdownRehypePlugins = [rehypeSanitize]
 
 export default function DocumentDetailPage() {
   const { id } = useParams<{ id: string }>()
   const [document, setDocument] = useState<DocumentDetail | null>(null)
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState<string | null>(null)
-  const latestIdRef = useRef<string | null>(id)
-
-  const fetchDocument = useCallback(async (docId: string) => {
-    setLoading(true)
-    setError(null)
-    try {
-      const doc = await api.getDocument(docId)
-      if (latestIdRef.current === docId) {
-        setDocument(doc)
-      }
-    } catch (err) {
-      if (latestIdRef.current === docId) {
-        setError(err instanceof Error ? err.message : '获取文档失败')
-      }
-    } finally {
-      if (latestIdRef.current === docId) {
-        setLoading(false)
-      }
-    }
-  }, [])
 
   useEffect(() => {
     if (!id) {
@@ -40,41 +26,52 @@ export default function DocumentDetailPage() {
       return
     }
 
-    latestIdRef.current = id
-    fetchDocument(id)
+    const controller = new AbortController()
+    setLoading(true)
+    setError(null)
+    setDocument(null)
 
-    return () => {
-      latestIdRef.current = null
+    const load = async () => {
+      try {
+        const doc = await api.getDocument(id, { signal: controller.signal })
+        setDocument(doc)
+      } catch (err) {
+        if (controller.signal.aborted) {
+          return
+        }
+        setError(err instanceof Error ? err.message : '获取文档失败')
+      } finally {
+        if (!controller.signal.aborted) {
+          setLoading(false)
+        }
+      }
     }
-  }, [id, fetchDocument])
+
+    void load()
+
+    return () => controller.abort()
+  }, [id])
 
   if (loading) {
-    return (
-      <div className="flex items-center justify-center py-12">
-        <div className="text-gray-500">加载中...</div>
-      </div>
-    )
+    return <LoadingState />
   }
 
   if (error) {
     return (
-      <div className="text-center py-12">
-        <p className="text-red-600 mb-4">{error}</p>
-        <Link to="/documents" className="btn btn-secondary">
-          返回文档列表
-        </Link>
-      </div>
+      <StatusCard
+        message={error}
+        tone="error"
+        action={<Link to="/documents" className="btn btn-secondary">返回文档列表</Link>}
+      />
     )
   }
 
   if (!document) {
     return (
-      <div className="text-center py-12">
-        <p className="text-gray-500 mb-4">文档不存在</p>
-        <Link to="/documents" className="btn btn-secondary">
-          返回文档列表
-        </Link>
-      </div>
+      <StatusCard
+        message="文档不存在"
+        action={<Link to="/documents" className="btn btn-secondary">返回文档列表</Link>}
+      />
     )
   }
 
@@ -95,15 +92,12 @@ export default function DocumentDetailPage() {
             {document.file_name}
           </h1>
           <p className="text-sm text-gray-500">
-            {document.chunk_count} 个片段 · {new Date(document.created_at).toLocaleString()}
+            {document.chunk_count} 个片段 · {formatTimestamp(document.created_at)}
           </p>
         </div>
 
         <div className="prose prose-gray max-w-none">
-          <ReactMarkdown
-            remarkPlugins={[remarkGfm]}
-            rehypePlugins={[rehypeRaw, rehypeSanitize]}
-          >
+          <ReactMarkdown remarkPlugins={markdownRemarkPlugins} rehypePlugins={markdownRehypePlugins}>
             {document.content}
           </ReactMarkdown>
         </div>

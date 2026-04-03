@@ -22,7 +22,7 @@ def setup_test_env():
 
 @pytest.fixture(scope="function")
 def client():
-    from app.main import app
+    from app.main import create_app
     from app.db.sqlite import init_db, get_all_documents
 
     class SyncASGITestClient:
@@ -48,7 +48,7 @@ def client():
             return self.request("DELETE", url, **kwargs)
     
     init_db()
-    test_client = SyncASGITestClient(app)
+    test_client = SyncASGITestClient(create_app())
     
     yield test_client
     

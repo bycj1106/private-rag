@@ -1,5 +1,4 @@
 from pydantic import BaseModel, Field
-from typing import Optional
 
 
 class DocumentCreate(BaseModel):
@@ -17,8 +16,8 @@ class DocumentResponse(BaseModel):
 class DocumentListResponse(BaseModel):
     documents: list[DocumentResponse]
     total: int
-    page: Optional[int] = 1
-    page_size: Optional[int] = 50
+    page: int = 1
+    page_size: int = 50
 
 
 class DocumentDetailResponse(BaseModel):
@@ -36,7 +35,7 @@ class DocumentDeleteResponse(BaseModel):
 
 class QueryRequest(BaseModel):
     question: str = Field(..., min_length=1, max_length=10000, description="Query question")
-    top_k: Optional[int] = Field(default=5, ge=1, le=100)
+    top_k: int = Field(default=5, ge=1, le=100)
 
 
 class SourceDocument(BaseModel):
@@ -53,5 +52,5 @@ class QueryResponse(BaseModel):
 class HealthResponse(BaseModel):
     status: str
     timestamp: str
-    database: Optional[str] = "ok"
-    vector_store: Optional[str] = "ok"
+    database: str = "ok"
+    vector_store: str = "ok"

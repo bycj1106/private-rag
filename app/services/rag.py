@@ -1,16 +1,26 @@
 import httpx
 import time
 import threading
-from typing import Any
+from typing import Any, TypedDict
+
 from langchain_core.language_models.chat_models import BaseChatModel
 from langchain_core.messages import BaseMessage, AIMessage, HumanMessage
 from langchain_core.outputs import ChatGeneration, ChatResult
+
 from app.config import get_settings
-from app.db import chroma
+from app.db import chroma, sqlite
+from app.db.chroma import SearchChunk
+
+
+class QueryResult(TypedDict):
+    answer: str
+    sources: list[SearchChunk]
 
 
 _http_client = None
 _http_client_lock = threading.Lock()
+EMPTY_KNOWLEDGE_BASE_ANSWER = "知识库为空，请先上传文档"
+NO_RELEVANT_CHUNKS_ANSWER = "未找到相关文档片段，请尝试其他问题"
 
 
 def _get_http_client() -> httpx.Client:
@@ -20,6 +30,27 @@ def _get_http_client() -> httpx.Client:
             if _http_client is None:
                 _http_client = httpx.Client(timeout=60.0)
     return _http_client
+
+
+def _convert_message_role(msg_type: str) -> str:
+    if msg_type == "human":
+        return "user"
+    return msg_type
+
+
+def _build_query_prompt(context: str, question: str) -> str:
+    return f"""基于以下文档内容回答问题。如果文档中没有相关信息，请说明无法回答。
+
+文档内容：
+{context}
+
+问题：{question}
+
+回答："""
+
+
+def _extract_response_content(result: object) -> str:
+    return result.content if hasattr(result, "content") else str(result)
 
 
 class MiniMaxChat(BaseChatModel):
@@ -33,11 +64,13 @@ class MiniMaxChat(BaseChatModel):
         headers: dict
     ) -> dict:
         settings = get_settings()
-        if not settings.minimax_api_key:
+        retry_times = settings.api_retry_times
+        retry_delay = settings.api_retry_delay
+        if not headers["Authorization"].removeprefix("Bearer ").strip():
             raise ValueError("MiniMax API key is not configured")
         last_error = None
         
-        for attempt in range(settings.api_retry_times):
+        for attempt in range(retry_times):
             try:
                 client = _get_http_client()
                 response = client.post(
@@ -49,8 +82,8 @@ class MiniMaxChat(BaseChatModel):
                 return response.json()
             except (httpx.HTTPError, httpx.TimeoutException) as e:
                 last_error = e
-                if attempt < settings.api_retry_times - 1:
-                    time.sleep(settings.api_retry_delay * (attempt + 1))
+                if attempt < retry_times - 1:
+                    time.sleep(retry_delay * (attempt + 1))
                     continue
                 raise
         
@@ -63,15 +96,10 @@ class MiniMaxChat(BaseChatModel):
     ) -> ChatResult:
         settings = get_settings()
         
-        def convert_role(msg_type: str) -> str:
-            if msg_type == "human":
-                return "user"
-            return msg_type
-        
         payload = {
             "model": self.model,
             "messages": [
-                {"role": convert_role(msg.type), "content": msg.content}
+                {"role": _convert_message_role(msg.type), "content": msg.content}
                 for msg in messages
             ],
             "temperature": kwargs.get("temperature", self.temperature),
@@ -122,7 +150,7 @@ def get_llm() -> MiniMaxChat:
     return _minimax_llm
 
 
-def build_context(chunks: list[dict], max_chars: int) -> str:
+def build_context(chunks: list[SearchChunk], max_chars: int) -> str:
     sections: list[str] = []
     current_size = 0
 
@@ -143,7 +171,12 @@ def build_context(chunks: list[dict], max_chars: int) -> str:
     return "\n\n".join(sections)
 
 
-def query(question: str, top_k: int = None) -> dict:
+def _build_empty_query_response() -> QueryResult:
+    answer = EMPTY_KNOWLEDGE_BASE_ANSWER if sqlite.get_documents_count() == 0 else NO_RELEVANT_CHUNKS_ANSWER
+    return {"answer": answer, "sources": []}
+
+
+def query(question: str, top_k: int | None = None) -> QueryResult:
     if not question or not question.strip():
         raise ValueError("Question cannot be empty")
     
@@ -151,36 +184,14 @@ def query(question: str, top_k: int = None) -> dict:
     if top_k is None:
         top_k = settings.top_k
     
-    if chroma.get_collection_count() == 0:
-        return {
-            "answer": "知识库为空，请先上传文档",
-            "sources": []
-        }
-    
     chunks = chroma.search_chunks(question, top_k)
     
     if not chunks:
-        return {
-            "answer": "未找到相关文档片段，请尝试其他问题",
-            "sources": []
-        }
+        return _build_empty_query_response()
     
     context = build_context(chunks, settings.max_context_chars)
-    
-    prompt = f"""基于以下文档内容回答问题。如果文档中没有相关信息，请说明无法回答。
-
-文档内容：
-{context}
-
-问题：{question}
-
-回答："""
-    
-    messages = [HumanMessage(content=prompt)]
+    messages = [HumanMessage(content=_build_query_prompt(context, question))]
     llm = get_llm()
     result = llm.invoke(messages)
     
-    return {
-        "answer": result.content if hasattr(result, 'content') else str(result),
-        "sources": chunks
-    }
+    return {"answer": _extract_response_content(result), "sources": chunks}

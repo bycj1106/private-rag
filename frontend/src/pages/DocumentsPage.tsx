@@ -2,8 +2,10 @@ import { useState, useEffect } from 'react'
 import { Link } from 'react-router-dom'
 import { api } from '../services/api'
 import type { Document } from '../services/api'
+import { LoadingState, StatusCard } from '../components/Feedback'
 import { Toast } from '../components/Toast'
 import { useToast } from '../hooks/useToast'
+import { formatTimestamp } from '../utils/format'
 
 export default function DocumentsPage() {
   const [documents, setDocuments] = useState<Document[]>([])
@@ -12,21 +14,28 @@ export default function DocumentsPage() {
   const [deletingId, setDeletingId] = useState<string | null>(null)
   const { toast, showToast, hideToast } = useToast()
 
-  const fetchDocuments = async () => {
+  const fetchDocuments = async (signal?: AbortSignal) => {
     setLoading(true)
     setError(null)
     try {
-      const result = await api.getDocuments()
+      const result = await api.getDocuments({ signal })
       setDocuments(result.documents)
     } catch (err) {
+      if (signal?.aborted) {
+        return
+      }
       setError(err instanceof Error ? err.message : '获取文档列表失败')
     } finally {
-      setLoading(false)
+      if (!signal?.aborted) {
+        setLoading(false)
+      }
     }
   }
 
   useEffect(() => {
-    fetchDocuments()
+    const controller = new AbortController()
+    fetchDocuments(controller.signal)
+    return () => controller.abort()
   }, [])
 
   const handleDelete = async (id: string) => {
@@ -43,21 +52,20 @@ export default function DocumentsPage() {
   }
 
   if (loading) {
-    return (
-      <div className="flex items-center justify-center py-12">
-        <div className="text-gray-500">加载中...</div>
-      </div>
-    )
+    return <LoadingState />
   }
 
   if (error) {
     return (
-      <div className="text-center py-12">
-        <p className="text-red-600 mb-4">{error}</p>
-        <button onClick={fetchDocuments} className="btn btn-secondary">
-          重试
-        </button>
-      </div>
+      <StatusCard
+        message={error}
+        tone="error"
+        action={
+          <button onClick={() => void fetchDocuments()} className="btn btn-secondary">
+            重试
+          </button>
+        }
+      />
     )
   }
 
@@ -76,9 +84,7 @@ export default function DocumentsPage() {
       </div>
 
       {documents.length === 0 ? (
-        <div className="text-center py-12 text-gray-500">
-          暂无文档，请先上传文档
-        </div>
+        <StatusCard message="暂无文档，请先上传文档" />
       ) : (
         <div className="space-y-4">
           {documents.map((doc) => (
@@ -89,7 +95,7 @@ export default function DocumentsPage() {
               >
                 <h3 className="font-medium text-gray-900">{doc.file_name}</h3>
                 <p className="text-sm text-gray-500 mt-1">
-                  {doc.chunk_count} 个片段 · {new Date(doc.created_at).toLocaleString()}
+                  {doc.chunk_count} 个片段 · {formatTimestamp(doc.created_at)}
                 </p>
               </Link>
               <button

@@ -1,7 +1,21 @@
 import pytest
 from app.services.document import chunk_text, ensure_file_name_has_md_extension
-from app.services.rag import build_context
+from app.services.rag import (
+    EMPTY_KNOWLEDGE_BASE_ANSWER,
+    NO_RELEVANT_CHUNKS_ANSWER,
+    build_context,
+    query,
+)
 from app.db import sqlite, chroma
+
+
+class MockResponseMessage:
+    content = "Mocked response"
+
+
+class MockLLM:
+    def invoke(self, messages):
+        return MockResponseMessage()
 
 
 class TestChunkTextEdgeCases:
@@ -43,14 +57,14 @@ class TestDocumentCascadeDelete:
         assert response.status_code == 201
         doc_id = response.json()["id"]
 
-        from app.db.sqlite import document_exists
-        assert document_exists(doc_id) is True
+        from app.db.sqlite import get_document
+        assert get_document(doc_id) is not None
 
         delete_response = client.delete(f"/documents/{doc_id}")
         assert delete_response.status_code == 200
 
-        from app.db.sqlite import document_exists
-        assert document_exists(doc_id) is False
+        assert client.get(f"/documents/{doc_id}").status_code == 404
+        assert get_document(doc_id) is None
 
     def test_delete_document_removes_from_chroma(self, client):
         response = client.post(
@@ -75,11 +89,7 @@ class TestDocumentCascadeDelete:
 
 class TestQueryWithDocument:
     def _mock_llm(self, monkeypatch):
-        from app.services.rag import get_llm
-        mock_llm_instance = type('MockLLM', (), {
-            'invoke': lambda self, messages: type('MockMessage', (), {'content': 'Mocked response'})()
-        })()
-        monkeypatch.setattr('app.services.rag.get_llm', lambda: mock_llm_instance)
+        monkeypatch.setattr('app.services.rag.get_llm', lambda: MockLLM())
 
     def test_query_returns_sources_with_metadata(self, client, monkeypatch):
         self._mock_llm(monkeypatch)
@@ -145,6 +155,32 @@ class TestRagContextLimit:
         context = build_context(chunks, max_chars=100)
         assert len(context) <= 100
         assert "[a.md]" in context
+
+    def test_query_returns_empty_knowledge_base_message_when_no_documents(self, monkeypatch):
+        class Settings:
+            top_k = 5
+            max_context_chars = 1000
+
+        monkeypatch.setattr("app.services.rag.get_settings", lambda: Settings())
+        monkeypatch.setattr("app.services.rag.chroma.search_chunks", lambda question, top_k: [])
+        monkeypatch.setattr("app.services.rag.sqlite.get_documents_count", lambda: 0)
+
+        result = query("What is RAG?")
+
+        assert result == {"answer": EMPTY_KNOWLEDGE_BASE_ANSWER, "sources": []}
+
+    def test_query_returns_no_match_message_when_documents_exist(self, monkeypatch):
+        class Settings:
+            top_k = 5
+            max_context_chars = 1000
+
+        monkeypatch.setattr("app.services.rag.get_settings", lambda: Settings())
+        monkeypatch.setattr("app.services.rag.chroma.search_chunks", lambda question, top_k: [])
+        monkeypatch.setattr("app.services.rag.sqlite.get_documents_count", lambda: 2)
+
+        result = query("Unknown question")
+
+        assert result == {"answer": NO_RELEVANT_CHUNKS_ANSWER, "sources": []}
 
 
 class TestHealthCheckDetails:

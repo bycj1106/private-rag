@@ -1,4 +1,6 @@
 import { useState } from 'react'
+
+import { MessageBanner } from '../components/Feedback'
 import { api } from '../services/api'
 
 export default function UploadPage() {
@@ -40,15 +42,7 @@ export default function UploadPage() {
       <h2 className="text-xl font-semibold text-gray-900 mb-6">上传文档</h2>
 
       {message && (
-        <div
-          className={`mb-6 p-4 rounded-lg ${
-            message.type === 'success'
-              ? 'bg-green-50 text-green-700 border border-green-200'
-              : 'bg-red-50 text-red-700 border border-red-200'
-          }`}
-        >
-          {message.text}
-        </div>
+        <MessageBanner message={message.text} tone={message.type} />
       )}
 
       <form onSubmit={handleSubmit} className="space-y-6">

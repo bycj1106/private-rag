@@ -1,21 +1,37 @@
 import sqlite3
 import uuid
-from datetime import datetime, timezone
-from typing import Optional, Generator
 from contextlib import contextmanager
+from datetime import datetime, timezone
+from typing import Generator, Optional, TypedDict
+
 from app.config import ensure_data_dirs, get_settings
 
 
-@contextmanager
-def get_connection() -> Generator[sqlite3.Connection, None, None]:
+class DocumentRecord(TypedDict):
+    id: str
+    file_name: str
+    chunk_count: int
+    created_at: str
+
+
+class DocumentDetailRecord(DocumentRecord):
+    content: str
+
+
+def _create_connection() -> sqlite3.Connection:
     ensure_data_dirs()
     settings = get_settings()
     conn = sqlite3.connect(settings.db_path, timeout=30.0)
     conn.row_factory = sqlite3.Row
+    conn.execute("PRAGMA synchronous=NORMAL")
+    conn.execute("PRAGMA busy_timeout = 30000")
+    return conn
+
+
+@contextmanager
+def get_connection() -> Generator[sqlite3.Connection, None, None]:
+    conn = _create_connection()
     try:
-        conn.execute("PRAGMA journal_mode=WAL")
-        conn.execute("PRAGMA synchronous=NORMAL")
-        conn.execute("PRAGMA busy_timeout = 30000")
         yield conn
     finally:
         conn.close()
@@ -24,6 +40,7 @@ def get_connection() -> Generator[sqlite3.Connection, None, None]:
 def init_db():
     with get_connection() as conn:
         cursor = conn.cursor()
+        cursor.execute("PRAGMA journal_mode=WAL")
         cursor.execute("""
             CREATE TABLE IF NOT EXISTS documents (
                 id TEXT PRIMARY KEY,
@@ -33,10 +50,14 @@ def init_db():
                 created_at TIMESTAMP NOT NULL
             )
         """)
+        cursor.execute("""
+            CREATE INDEX IF NOT EXISTS idx_documents_created_at
+            ON documents(created_at DESC)
+        """)
         conn.commit()
 
 
-def create_document(file_name: str, content: str, chunk_count: int) -> dict:
+def create_document(file_name: str, content: str, chunk_count: int) -> DocumentRecord:
     doc_id = str(uuid.uuid4())
     created_at = datetime.now(timezone.utc).isoformat()
     
@@ -56,18 +77,16 @@ def create_document(file_name: str, content: str, chunk_count: int) -> dict:
     }
 
 
-def get_document(doc_id: str) -> Optional[dict]:
+def get_document(doc_id: str) -> Optional[DocumentDetailRecord]:
     with get_connection() as conn:
         cursor = conn.cursor()
         cursor.execute("SELECT * FROM documents WHERE id = ?", (doc_id,))
         row = cursor.fetchone()
-    
-    if row:
-        return dict(row)
-    return None
+
+    return dict(row) if row else None
 
 
-def get_all_documents(limit: int = None, offset: int = None) -> list[dict]:
+def get_all_documents(limit: int = None, offset: int = None) -> list[DocumentRecord]:
     with get_connection() as conn:
         cursor = conn.cursor()
         query = "SELECT id, file_name, chunk_count, created_at FROM documents ORDER BY created_at DESC"
