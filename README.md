@@ -94,6 +94,8 @@ cd ~/personal/private-rag/frontend
 npm run dev
 ```
 
+> **架构说明**：后端使用 `create_app()` 工厂模式创建 FastAPI 应用，路由同时注册在 `/` 和 `/api` 两个路径下，接口完全等价。前端默认调用 `/api/*` 路径。
+
 ### 5. 访问应用
 
 - **前端界面**: http://localhost:5173
@@ -104,33 +106,44 @@ npm run dev
 
 ```
 private-rag
-├── app/                        # 后端代码
-│   ├── api/routes.py          # API 路由
-│   ├── config.py              # 配置管理
+├── app/                          # 后端代码
+│   ├── api/routes.py             # API 路由
+│   ├── config.py                 # 配置管理
 │   ├── db/
-│   │   ├── chroma.py         # Chroma 向量库
-│   │   └── sqlite.py         # SQLite 元数据
-│   ├── models/schemas.py      # Pydantic 模型
+│   │   ├── chroma.py             # Chroma 向量库
+│   │   └── sqlite.py             # SQLite 元数据
+│   ├── models/schemas.py         # Pydantic 模型
 │   ├── services/
-│   │   ├── document.py       # 文档处理
-│   │   └── rag.py            # RAG 核心
-│   └── main.py               # FastAPI 入口
-├── frontend/                    # 前端代码
+│   │   ├── document.py           # 文档处理
+│   │   └── rag.py                # RAG 核心
+│   └── main.py                   # FastAPI 入口 (create_app 工厂模式)
+├── frontend/                      # 前端代码
 │   ├── src/
-│   │   ├── components/       # 组件
-│   │   ├── pages/           # 页面
-│   │   ├── hooks/           # React Hooks
-│   │   ├── services/api.ts   # API 调用
-│   │   ├── App.tsx          # 应用入口
-│   │   └── index.css        # 全局样式
-│   ├── tailwind.config.js   # Tailwind 配置
-│   ├── vite.config.ts       # Vite 配置
+│   │   ├── components/           # 组件
+│   │   │   ├── Feedback.tsx      # MessageBanner, LoadingState, StatusCard
+│   │   │   ├── Layout.tsx        # 导航布局
+│   │   │   ├── QueryResult.tsx   # AnswerCard, SourceList
+│   │   │   └── Toast.tsx         # Toast 通知
+│   │   ├── pages/                # 页面
+│   │   │   ├── UploadPage.tsx    # 上传文档
+│   │   │   ├── DocumentsPage.tsx # 文档列表
+│   │   │   ├── DocumentDetailPage.tsx  # 文档详情
+│   │   │   └── QueryPage.tsx     # 知识问答
+│   │   ├── hooks/                # React Hooks
+│   │   │   └── useToast.ts       # Toast 状态管理
+│   │   ├── services/api.ts       # API 调用
+│   │   ├── App.tsx               # 应用入口
+│   │   └── index.css             # 全局样式
+│   ├── tailwind.config.js        # Tailwind 配置
+│   ├── vite.config.ts            # Vite 配置
 │   └── package.json
-├── data/                      # 数据持久化
-├── tests/                     # 测试
-├── docker/                    # Docker 配置
-├── spec/                      # 规范文档
-├── requirements.txt           # Python 依赖
+├── data/                          # 数据持久化
+├── tests/                         # 测试
+├── docker/                        # Docker 配置
+├── spec/                          # 规范文档
+│   ├── SPEC.md                    # 项目规格文档
+│   └── architecture-rag-knowledge-base.md  # 详细架构文档
+├── requirements.txt               # Python 依赖
 └── README.md
 ```
 
@@ -342,8 +355,12 @@ npm run test:run
 | `USE_LOCAL_EMBEDDING` | false | 是否使用本地 embedding |
 | `API_RETRY_TIMES` | 3 | API 请求重试次数 (1-10) |
 | `API_RETRY_DELAY` | 1.0 | API 重试间隔秒数 (0.1-30) |
+| `DATA_DIR` | ./data | 数据目录 |
 | `CHROMA_DIR` | ./data/chroma | Chroma 存储路径 |
 | `DB_PATH` | ./data/app.db | SQLite 路径 |
+| `CHROMA_BATCH_SIZE` | 128 | Chroma 批量写入大小 (1-5000) |
+| `MAX_CONTEXT_CHARS` | 12000 | RAG 上下文最大字符数 (1000-200000) |
+| `CORS_ORIGINS` | ["http://localhost:5173", "http://127.0.0.1:5173"] | CORS 允许的源列表 |
 
 ## 使用 Ollama 本地 Embedding
 
@@ -378,6 +395,8 @@ pip install -r requirements.txt
 **解决**: 检查 CORS 配置和后端服务状态
 ```bash
 curl http://localhost:8000/health
+# 或
+curl http://localhost:8000/api/health
 ```
 
 ### 问题: 问答返回"知识库为空"
@@ -387,6 +406,10 @@ curl http://localhost:8000/health
 ### 问题: API 请求超时
 
 **解决**: 增加 `API_RETRY_TIMES` 或检查网络连接
+
+### 问题: Chroma 或 SQLite 连接异常
+
+**解决**: 检查 `DATA_DIR`、`CHROMA_DIR`、`DB_PATH` 配置是否正确，数据目录是否存在
 
 ## 学习资源
 
