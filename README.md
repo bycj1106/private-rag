@@ -43,9 +43,11 @@
 后端开发     ████████████████████ 100%
 前端界面     ████████████████████ 100%
 代码优化     ████████████████████ 100%
-测试完善     ████████░░░░░░░░░░░░ 40%
-文档部署     ████████░░░░░░░░░░░░ 40%
+测试完善     ████████████████████ 100%
+文档部署     ████████████████████ 100%
 ```
+
+**状态**: ✅ 所有功能已完成并稳定运行
 
 ## 快速开始
 
@@ -69,7 +71,7 @@ pip install -r requirements.txt
 
 # 配置环境变量
 cp .env.example env/.env
-# 编辑 env/.env，填入你的 MiniMax API Key
+# 编辑 env/.env，填入你的 MINIMAX_API_KEY
 ```
 
 ### 3. 配置前端
@@ -327,8 +329,11 @@ npm run test:run
 
 | 变量 | 默认值 | 说明 |
 |------|--------|------|
-| `OPENAI_API_KEY` | - | MiniMax API 密钥（必填） |
+| `MINIMAX_API_KEY` | - | MiniMax API 密钥（必填） |
+| `OPENAI_API_KEY` | - | MiniMax API 密钥（别名，与 MINIMAX_API_KEY 等效） |
 | `MINIMAX_API_URL` | https://api.minimaxi.com/v1/text/chatcompletion_v2 | MiniMax API 地址 |
+| `MINIMAX_MODEL` | MiniMax-M2.7 | MiniMax 模型名称 |
+| `TEMPERATURE` | 0.7 | 生成温度 (0.0-2.0) |
 | `CHUNK_SIZE` | 500 | 分块大小 (100-100000) |
 | `CHUNK_OVERLAP` | 50 | 分块重叠 (0-10000) |
 | `TOP_K` | 5 | 检索数量 (1-100) |
